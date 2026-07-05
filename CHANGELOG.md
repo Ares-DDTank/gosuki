@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Database and importer now use platform-appropriate data directories via `utils.GetGosukiDataDir()` — Windows uses `%APPDATA%\gosuki`, Linux/BSD retains `~/.local/share/gosuki`
+- `suki`: enable version display via `--version` flag (was previously hidden)
 
 ### Fixed
 

@@ -41,6 +41,7 @@ func main() {
 	app.Version = build.Version()
 
 	app.Name = "suki"
+	app.Version = build.Version()
 	app.Usage = "gosuki lightweight cli - the universal bookmark manager"
 	app.Description = `
 suki is a lightweight, efficient command-line interface designed for querying and managing
@@ -57,7 +58,6 @@ Usage examples:
   suki "search term"      # Search for specific bookmarks
   suki | dmenu            # Pipe output to dmenu for interactive selection`
 	app.UsageText = "suki [OPTIONS] [KEYWORD [KEYWORD...]] "
-	app.HideVersion = true
 	app.EnableShellCompletion = true
 	app.Suggest = true
 	app.CustomRootCommandHelpTemplate = AppHelpTemplate
