@@ -98,7 +98,7 @@ func (f *Firefox) GetCurFlavour() *browsers.BrowserDef {
 	return f.activeFlavour
 }
 
-func (firefox *Firefox) ListFlavours() []browsers.BrowserDef {
+func (f *Firefox) ListFlavours() []browsers.BrowserDef {
 	return FirefoxProfileManager.ListFlavours()
 }
 
@@ -430,6 +430,11 @@ func (f *Firefox) PreLoad(_ *modules.Context) error {
 	}
 
 	defer func() {
+		if f.places != nil {
+			f.places.Close()
+		}
+	}()
+	defer func() {
 		if err = pc.Clean(); err != nil {
 			log.Errorf("error cleaning tmp places file: %s", err)
 		}
@@ -486,40 +491,49 @@ func (f *Firefox) PreLoad(_ *modules.Context) error {
 }
 
 // Implements modules.Runner interface
-func (ff *Firefox) Run() {
+func (f *Firefox) Run() {
 	startRun := time.Now()
 
-	pc, err := ff.initPlacesCopy()
+	pc, err := f.initPlacesCopy()
 	if err != nil {
 		log.Error(err)
 	}
-	defer pc.Clean()
+	defer func() {
+		if f.places != nil {
+			f.places.Close()
+		}
+	}()
+	defer func() {
+		if err = pc.Clean(); err != nil {
+			log.Errorf("error cleaning tmp places file: %s", err)
+		}
+	}()
 
 	// go one step back in time to avoid missing changes
-	scanSince := ff.lastRunAt.Add(-1 * time.Second)
+	scanSince := f.lastRunAt.Add(-1 * time.Second)
 	scanSinceSQL := scanSince.UTC().UnixNano() / 1000
 
 	log.Debugf("Checking changes since <%d> %s",
 		scanSinceSQL,
 		scanSince.Local().Format("Mon Jan 2 15:04:05 MST 2006"))
 
-	bookmarks, err := ff.scanModifiedBookmarks(scanSinceSQL)
+	bookmarks, err := f.scanModifiedBookmarks(scanSinceSQL)
 	if err != nil {
 		log.Error(err)
 	}
-	ff.loadBookmarksToTree(bookmarks, true)
+	f.loadBookmarksToTree(bookmarks, true)
 	// tree.PrintTree(ff.NodeTree)
 
 	//NOTE: we don't rebuild the index from the tree here as the source of
 	// truth is the URLIndex and not the tree. The tree is only used for
 	// reprensenting the bookmark hierarchy in a conveniant way.
 
-	database.SyncURLIndexToBuffer(ff.URLIndexList, ff.URLIndex, ff.BufferDB)
-	ff.BufferDB.SyncTo(database.Cache.DB)
+	database.SyncURLIndexToBuffer(f.URLIndexList, f.URLIndex, f.BufferDB)
+	f.BufferDB.SyncTo(database.Cache.DB)
 	database.ScheduleBackupToDisk()
 
-	ff.SetLastWatchRuntime(time.Since(startRun))
-	ff.lastRunAt = time.Now().UTC()
+	f.SetLastWatchRuntime(time.Since(startRun))
+	f.lastRunAt = time.Now().UTC()
 }
 
 // Implement modules.Shutdowner

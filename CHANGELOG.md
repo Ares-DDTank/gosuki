@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Skip backup for in-memory databases during schema migration (regression when `db.filePath` is empty)
+- Firefox: close `places.sqlite` connection after each `Run()` to prevent file descriptor leak — closes #26, #22
 
 ## [1.4.1]
 
