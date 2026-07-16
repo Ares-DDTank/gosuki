@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [1.4.2]
+
 ### Added
 
 - Automatic backup of database before schema migration to protect against data loss.
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database and importer now use platform-appropriate data directories via `utils.GetGosukiDataDir()` — Windows uses `%APPDATA%\gosuki`, Linux/BSD retains `~/.local/share/gosuki`
 - `suki`: enable version display via `--version` flag (was previously hidden)
 - Man pages: update synopsis formatting, add repository and documentation links, update copyright year
+- TUI: use lowercase `l` (instead of `L`) to toggle logs panel
 
 ### Fixed
 
@@ -187,7 +190,8 @@ creatively named `schema_version`.
 
 Initial public release
 
-[unreleased]: https://github.com/blob42/gosuki/compare/v1.4.1...HEAD
+[unreleased]: https://github.com/blob42/gosuki/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/blob42/gosuki/releases/tag/v1.4.2
 [1.4.1]: https://github.com/blob42/gosuki/releases/tag/v1.4.1
 [1.4.0]: https://github.com/blob42/gosuki/releases/tag/v1.4.0
 [1.3.0]: https://github.com/blob42/gosuki/releases/tag/v1.3.0
