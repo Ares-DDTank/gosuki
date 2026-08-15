@@ -1,0 +1,15 @@
+build/
+dist/
+.git/
+.gitpriv/
+.gitpub/
+*.db
+*.db-shm
+*.db-wal
+docs/
+website/
+.vscode/
+.idea/
+*.md
+!go.mod
+!go.sum

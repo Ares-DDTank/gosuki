@@ -1,0 +1,20 @@
+services:
+  gosuki:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: gosuki:latest
+    container_name: gosuki
+    restart: unless-stopped
+    ports:
+      - "${GOSUKI_HOST_PORT:-2025}:2025"
+    volumes:
+      - gosuki-data:/var/lib/gosuki
+      - gosuki-config:/etc/gosuki
+    environment:
+      - GOSUKI_DB=/var/lib/gosuki/gosuki.db
+      - GOSUKI_CONFIG=/etc/gosuki/config.toml
+
+volumes:
+  gosuki-data:
+  gosuki-config:
