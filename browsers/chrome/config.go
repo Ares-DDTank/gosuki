@@ -29,9 +29,11 @@ import (
 )
 
 const (
-	BrowserName    = "chrome" // Default flavour to use
-	DefaultProfile = "Default"
-	RootNodeName   = "ROOT"
+	BrowserName              = "chrome" // Default flavour to use
+	DefaultProfile           = "Default"
+	RootNodeName             = "ROOT"
+	bookmarksFileName        = "Bookmarks"
+	accountBookmarksFileName = "AccountBookmarks"
 )
 
 type ChromeConfig struct {
@@ -51,7 +53,7 @@ func NewChromeConfig() *ChromeConfig {
 	config := &ChromeConfig{
 		BrowserConfig: &modules.BrowserConfig{
 			Name:   BrowserName,
-			BkFile: "Bookmarks",
+			BkFile: bookmarksFileName,
 			NodeTree: &tree.Node{
 				Title:  RootNodeName,
 				Parent: nil,

@@ -200,12 +200,26 @@ func (ch *Chrome) init(_ *modules.Context) error {
 func (ch *Chrome) setupWatchers() error {
 	bookmarkDir := ch.BkDir
 	log.Debugf("Watching path: %s", bookmarkDir)
-	bookmarkPath := filepath.Join(bookmarkDir, ch.BkFile)
+	bookmarkPaths, err := ch.bookmarkPaths()
+	if err != nil {
+		log.Error(err)
+		return modules.ErrWatcherSetup
+	}
+	watchPaths := ch.bookmarkFilePaths()
+
+	// SetupWatchers uses BkFile to validate and identify the watcher. Fall
+	// back temporarily to AccountBookmarks when a profile has no local
+	// Bookmarks file.
+	configuredBkFile := ch.BkFile
+	if _, err := ch.BookmarkPath(); err != nil {
+		ch.BkFile = filepath.Base(bookmarkPaths[0])
+	}
+
 	// Setup watcher
 	w := &watch.Watch{
 		Path:       bookmarkDir,
 		EventTypes: []fsnotify.Op{fsnotify.Create},
-		EventNames: []string{bookmarkPath},
+		EventNames: watchPaths,
 
 		// NOTE: it used to be that chrome watcher would go stale after the
 		// first event, this is because the bookmark file is created after the
@@ -216,6 +230,7 @@ func (ch *Chrome) setupWatchers() error {
 	}
 
 	ok, err := modules.SetupWatchers(ch.BrowserConfig, w)
+	ch.BkFile = configuredBkFile
 	if err != nil {
 		log.Error(err)
 		return modules.ErrWatcherSetup
@@ -225,6 +240,56 @@ func (ch *Chrome) setupWatchers() error {
 	}
 
 	return nil
+}
+
+// bookmarkFilePaths returns every bookmark store path that can belong to the
+// active Chrome profile, including stores that have not been created yet.
+func (ch *Chrome) bookmarkFilePaths() []string {
+	fileNames := []string{ch.BkFile, accountBookmarksFileName}
+	seen := make(map[string]struct{}, len(fileNames))
+	paths := make([]string, 0, len(fileNames))
+
+	for _, fileName := range fileNames {
+		if fileName == "" {
+			continue
+		}
+
+		bookmarkPath := filepath.Clean(filepath.Join(ch.BkDir, fileName))
+		if _, ok := seen[bookmarkPath]; ok {
+			continue
+		}
+		seen[bookmarkPath] = struct{}{}
+		paths = append(paths, bookmarkPath)
+	}
+
+	return paths
+}
+
+// bookmarkPaths returns every plaintext bookmark store present in the active
+// Chrome profile. Newer Chrome versions keep signed-in account bookmarks in
+// AccountBookmarks while retaining Bookmarks for local-only bookmarks.
+func (ch *Chrome) bookmarkPaths() ([]string, error) {
+	paths := make([]string, 0, 2)
+	for _, bookmarkPath := range ch.bookmarkFilePaths() {
+		info, err := os.Stat(bookmarkPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("checking Chrome bookmark file %s: %w", bookmarkPath, err)
+		}
+		if info.IsDir() {
+			continue
+		}
+
+		paths = append(paths, bookmarkPath)
+	}
+
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no Chrome bookmark files found in %s", ch.BkDir)
+	}
+
+	return paths, nil
 }
 
 func (ch *Chrome) ResetWatcher() error {
@@ -273,11 +338,19 @@ func (ch *Chrome) run(runTask bool) {
 		Type:   tree.RootNode,
 	}
 
-	// Load bookmark file
-	bookmarkPath, err := ch.BookmarkPath()
+	// Load all plaintext bookmark stores in the profile. Chrome may split
+	// local-only and signed-in account bookmarks across separate files.
+	bookmarkPaths, err := ch.bookmarkPaths()
 	if err != nil {
 		log.Error(err)
 		return
+	}
+	if ch.Total() == 0 {
+		var total uint
+		for _, bookmarkPath := range bookmarkPaths {
+			total += preCountCountUrls(bookmarkPath)
+		}
+		ch.SetTotal(total)
 	}
 
 	var parseChildren ParseChildJSONFunc
@@ -465,17 +538,19 @@ func (ch *Chrome) run(runTask bool) {
 		return nil
 	}
 
-	f, err := os.ReadFile(bookmarkPath)
-	if err != nil {
-		log.Error(err)
-		return
+	for _, bookmarkPath := range bookmarkPaths {
+		f, err := os.ReadFile(bookmarkPath)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		// starts from the "roots" key of a Chrome JSON bookmark file
+		rootsData, _, _, _ := jsonparser.Get(f, "roots")
+
+		// Merge this bookmark store into the profile's node tree.
+		jsonparser.ObjectEach(rootsData, jsonParseRoots)
 	}
-
-	// starts from the "roots" key of chrome json bookmark file
-	rootsData, _, _, _ := jsonparser.Get(f, "roots")
-
-	// Start a new node tree building job
-	jsonparser.ObjectEach(rootsData, jsonParseRoots)
 	ch.SetLastTreeParseRuntime(time.Since(startRun))
 	log.Debugf("<%s> parsed tree in %s", ch.Name, ch.LastFullTreeParseRT())
 	// Finished node tree building job
@@ -526,11 +601,16 @@ func (ch *Chrome) run(runTask bool) {
 
 // PreLoad() will be called right after a browser is initialized
 func (ch *Chrome) PreLoad(_ *modules.Context) error {
-	bookmarkPath, err := ch.BookmarkPath()
+	bookmarkPaths, err := ch.bookmarkPaths()
 	if err != nil {
-		log.Error(err)
+		return err
 	}
-	ch.SetTotal(preCountCountUrls(bookmarkPath))
+
+	var total uint
+	for _, bookmarkPath := range bookmarkPaths {
+		total += preCountCountUrls(bookmarkPath)
+	}
+	ch.SetTotal(total)
 
 	// Send total to msg bus
 	go func() {
