@@ -64,6 +64,20 @@ Extensions:
 
 ## Debugging
 
+### Isolated Windows debug build
+
+The Windows fork uses a separate config, database, log directory, and Web UI
+port from the Scoop installation. Rebuild and restart it with:
+
+```powershell
+.\restart-debug.ps1
+```
+
+The scripts validate `D:\C2D\dotfiles\gosuki-dev\.gosuki-config-role`, build
+`build\gosuki-debug.exe` with optimizations disabled, and launch it on
+`127.0.0.1:22025`. `stop-debug.ps1` matches the executable's absolute path so
+it does not stop the Scoop build.
+
 ### Attach to running process with dlv
 
 - This example uses `dlv` to launch gosuki in server mode with TUI using a test config file and database and enabling debug log for Chrome based browsers.
