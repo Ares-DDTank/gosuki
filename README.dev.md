@@ -74,9 +74,19 @@ port from the Scoop installation. Rebuild and restart it with:
 ```
 
 The scripts validate `D:\C2D\dotfiles\gosuki-dev\.gosuki-config-role`, build
-`build\gosuki-debug.exe` with optimizations disabled, and launch it on
+`build\gosuki-debug.exe` and `build\suki-debug.exe` with optimizations disabled, and launch GoSuki on
 `127.0.0.1:22025`. `stop-debug.ps1` matches the executable's absolute path so
 it does not stop the Scoop build.
+
+Use the runtime-aware wrappers for either CLI. They pass the selected config,
+database and port explicitly and validate the role marker before launching.
+The default is the fork; select the installed release with `-Runtime scoop`.
+
+```powershell
+.\run-gosuki.ps1 start
+.\run-suki.ps1 firefox
+.\run-suki.ps1 -Runtime scoop firefox
+```
 
 ### Attach to running process with dlv
 

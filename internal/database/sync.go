@@ -548,6 +548,7 @@ func (src *DB) BackupToDisk(dbpath string) error {
 
 	bkp.Finish()
 	log.Infof("copied <%s> to <%s>", src.Name, dbpath)
+	notifyDatabaseChange()
 
 	return nil
 }

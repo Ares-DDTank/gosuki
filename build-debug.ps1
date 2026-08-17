@@ -5,7 +5,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
-$debugExe = Join-Path $repoRoot "build\gosuki-debug.exe"
+$debugExecutables = @(
+    [pscustomobject]@{ Name = "GoSuki"; Path = (Join-Path $repoRoot "build\gosuki-debug.exe"); Package = "./cmd/gosuki" }
+    [pscustomobject]@{ Name = "Suki"; Path = (Join-Path $repoRoot "build\suki-debug.exe"); Package = "./cmd/suki" }
+)
 $stopScript = Join-Path $repoRoot "stop-debug.ps1"
 
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
@@ -13,7 +16,7 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 }
 
 & $stopScript
-New-Item -ItemType Directory -Path (Split-Path -Parent $debugExe) -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $repoRoot "build") -Force | Out-Null
 
 Push-Location $repoRoot
 try {
@@ -25,20 +28,24 @@ try {
     }
 
     $version = (& git describe --tags --dirty --always).Trim() + "-debug"
-    & go build `
-        -tags "windows amd64" `
-        -gcflags "all=-N -l" `
-        -ldflags "-X github.com/blob42/gosuki/pkg/build.Describe=$version" `
-        -o $debugExe `
-        ./cmd/gosuki
-    if ($LASTEXITCODE -ne 0) {
-        throw "GoSuki debug build failed with exit code $LASTEXITCODE."
+    foreach ($target in $debugExecutables) {
+        & go build `
+            -tags "windows amd64" `
+            -gcflags "all=-N -l" `
+            -ldflags "-X github.com/blob42/gosuki/pkg/build.Describe=$version" `
+            -o $target.Path `
+            $target.Package
+        if ($LASTEXITCODE -ne 0) {
+            throw "$($target.Name) debug build failed with exit code $LASTEXITCODE."
+        }
     }
 }
 finally {
     Pop-Location
 }
 
-$item = Get-Item -LiteralPath $debugExe
-Write-Host "Built GoSuki debug executable: $($item.FullName) ($($item.Length) bytes)"
-$item.FullName
+foreach ($target in $debugExecutables) {
+    $item = Get-Item -LiteralPath $target.Path
+    Write-Host "Built $($target.Name) debug executable: $($item.FullName) ($($item.Length) bytes)"
+    $item.FullName
+}

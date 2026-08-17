@@ -434,8 +434,9 @@ func RegisterSqliteHooks() {
 }
 
 type dbConfig struct {
-	SyncInterval time.Duration `toml:"sync-interval" mapstructure:"sync-interval"`
-	Path         string        `toml:"path" mapstructure:"path"`
+	SyncInterval      time.Duration `toml:"sync-interval" mapstructure:"sync-interval"`
+	Path              string        `toml:"path" mapstructure:"path"`
+	ChangeNotifyFiles []string      `toml:"change-notify-files" mapstructure:"change-notify-files"`
 }
 
 func init() {
