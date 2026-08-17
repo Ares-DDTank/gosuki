@@ -251,6 +251,49 @@ func TestSyncToCache(t *testing.T) {
 		require.Equal(t, sum, sbm.XHSum)
 	})
 
+	t.Run("Test case 4: Edge owns a URL shared with Firefox", func(t *testing.T) {
+		bm := Bookmark{
+			URL:    "https://example.com/shared-browser-bookmark",
+			Title:  "Shared browser bookmark",
+			Tags:   []string{"shared"},
+			Desc:   "Same content in both browsers",
+			Module: "firefox_default-release-1",
+		}
+
+		require.NoError(t, buffer.UpsertBookmark(&bm))
+		buffer.SyncTo(cacheL1)
+		cacheL1.SyncTo(cacheL2)
+
+		bm.Module = "chrome_edge_用户配置 1"
+		require.NoError(t, buffer.UpsertBookmark(&bm))
+		buffer.SyncTo(cacheL1)
+		cacheL1.SyncTo(cacheL2)
+
+		for _, db := range []*DB{buffer, cacheL1, cacheL2} {
+			var module string
+			require.NoError(t, db.Handle.Get(
+				&module,
+				"SELECT module FROM gskbookmarks WHERE url = ?",
+				bm.URL,
+			))
+			require.Equal(t, "chrome_edge_用户配置 1", module)
+		}
+
+		// A later Firefox scan must not take ownership back from Edge.
+		bm.Module = "firefox_default-release-1"
+		require.NoError(t, buffer.UpsertBookmark(&bm))
+		buffer.SyncTo(cacheL1)
+		cacheL1.SyncTo(cacheL2)
+
+		var module string
+		require.NoError(t, cacheL2.Handle.Get(
+			&module,
+			"SELECT module FROM gskbookmarks WHERE url = ?",
+			bm.URL,
+		))
+		require.Equal(t, "chrome_edge_用户配置 1", module)
+	})
+
 	buffer.Close()
 	cacheL1.Close()
 	cacheL2.Close()
@@ -391,11 +434,13 @@ func getCache(t *testing.T, name string) *DB {
 
 func setupSyncToDiskDBs(t *testing.T) (*DB, *DB) {
 	srcDB := getBuffer(t)
+	originalDiskDB := DiskDB
 
 	tmpDir := t.TempDir() // Create a temporary directory for the test database files
 	dstPath := filepath.Join(tmpDir, "gosukidb_test.sqlite")
 	dstDB := NewDB("test_sync_dst", dstPath, DBTypeFileDSN, DsnOptions{})
 	initLocalDB(srcDB, dstPath)
+	testDiskDB := DiskDB
 
 	_, err := dstDB.Init()
 	if err != nil {
@@ -405,6 +450,10 @@ func setupSyncToDiskDBs(t *testing.T) (*DB, *DB) {
 	t.Cleanup(func() {
 		srcDB.Close()
 		dstDB.Close()
+		if testDiskDB != nil {
+			testDiskDB.Close()
+		}
+		DiskDB = originalDiskDB
 		os.RemoveAll(tmpDir)
 	})
 	return srcDB, dstDB

@@ -54,7 +54,6 @@ details.
 
 package database
 
-
 import (
 	"fmt"
 	"strconv"
@@ -135,10 +134,16 @@ description
 - Uses Lamport clock for p2p synchronization to maintain causal ordering
 */
 func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
+	type existingBookmark struct {
+		hash   uint64
+		module string
+		scan   *RawBookmark
+	}
+
 	var err error
 	var sqlite3Err sqlite3.Error
 	var isSqlErr bool
-	var existingUrls = make(map[uint64]*RawBookmark)
+	var existingUrls = make(map[string]*existingBookmark)
 
 	log.Debugf("syncing <%s> to <%s>", src.Name, dst.Name)
 	cacheMu.Lock()
@@ -279,14 +284,20 @@ func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
 
 			// check original hash of bookmark
 			var oldBkHash xxhashsum
-			err = dstTx.QueryRowx("SELECT xhsum FROM gskbookmarks WHERE url = ?", scan.URL).Scan(&oldBkHash)
+			var existingModule string
+			err = dstTx.QueryRowx("SELECT xhsum, module FROM gskbookmarks WHERE url = ?", scan.URL).
+				Scan(&oldBkHash, &existingModule)
 			if err != nil {
 				log.Error("select xhsum from", "src", L2Cache.Name, "url", scan.URL, "err", err)
 				continue
 
 			}
 
-			existingUrls[uint64(oldBkHash)] = &scan
+			existingUrls[scan.URL] = &existingBookmark{
+				hash:   uint64(oldBkHash),
+				module: existingModule,
+				scan:   &scan,
+			}
 
 			// insertion success on l2 cache, update clock
 		} else if err == nil && dst.Name == L2CacheName {
@@ -316,7 +327,11 @@ func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
 	}
 
 	// Loop performing the update for each existing bookmark
-	for hash, scan := range existingUrls {
+	for _, existing := range existingUrls {
+		hash := existing.hash
+		scan := existing.scan
+		preferredModule := preferredBookmarkModule(existing.module, scan.Module)
+		moduleChanged := preferredModule != existing.module
 		var tags string
 		//log.Debugf("updating existing %s", scan.Url)
 
@@ -342,7 +357,7 @@ func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
 		newTagsStr := newTags.Sort().StringWrap()
 		newHash := xhsum(scan.URL, scan.Metadata, newTagsStr, scan.Desc)
 
-		if strconv.FormatUint(hash, 10) == newHash {
+		if strconv.FormatUint(hash, 10) == newHash && !moduleChanged {
 			continue
 		}
 
@@ -359,7 +374,7 @@ func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
 			scan.Desc,
 			scan.Desc,
 			0, //flags
-			scan.Module,
+			preferredModule,
 			newHash,
 			clock,
 			scan.NodeID,
@@ -377,7 +392,7 @@ func (src *DB) SyncToClock(dst *DB, remoteClock uint64) {
 					Title:  scan.Metadata,
 					Tags:   newTags.tags,
 					Desc:   scan.Desc,
-					Module: scan.Module,
+					Module: preferredModule,
 				},
 				Kind: hooks.GlobalUpdateHook,
 			}

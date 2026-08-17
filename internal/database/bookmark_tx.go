@@ -22,8 +22,6 @@
 package database
 
 import (
-	"html"
-
 	"github.com/blob42/gosuki"
 	"github.com/blob42/gosuki/internal/utils"
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -81,6 +79,7 @@ func (db *DB) UpsertBookmark(bk *Bookmark) error {
 			metadata = CASE WHEN ? != '' THEN ? ELSE metadata END,
 			desc = CASE WHEN ? != '' THEN ? ELSE desc END,
 			tags=?,
+			module=?,
 			modified=strftime('%s'),
 			xhsum=?
 		WHERE url=?`,
@@ -107,7 +106,7 @@ func (db *DB) UpsertBookmark(bk *Bookmark) error {
 	}
 
 	// sanitize urls
-	bk.URL = html.UnescapeString(bk.URL)
+	bk.URL = unescapeTerminatedURLReferences(bk.URL)
 
 	// unescape unicode
 	bk.Title = utils.DecodeUnicodeEscapes(bk.Title)
@@ -156,14 +155,28 @@ func (db *DB) UpsertBookmark(bk *Bookmark) error {
 
 		// Get existing xhashsum of bookmark
 		var targetXHSum string
-		err = tx.QueryRowx("SELECT xhsum FROM gskbookmarks WHERE url = ?", bk.URL).Scan(&targetXHSum)
+		var existingModule string
+		err = tx.QueryRowx("SELECT xhsum, module FROM gskbookmarks WHERE url = ?", bk.URL).
+			Scan(&targetXHSum, &existingModule)
 		if err != nil {
 			log.Error("%s", err, "url", bk.URL)
 			return err
 		}
+		preferredModule := preferredBookmarkModule(existingModule, bk.Module)
 
 		// We will only update the bookmark if the xhsum changed
 		if targetXHSum == xhsum(bk.URL, bk.Title, tagListText, bk.Desc) {
+			if preferredModule != existingModule {
+				_, err = tx.Exec(
+					"UPDATE gskbookmarks SET module = ?, modified = strftime('%s') WHERE url = ?",
+					preferredModule,
+					bk.URL,
+				)
+				if err != nil {
+					return err
+				}
+				return tx.Commit()
+			}
 			log.Trace("upsert: same hash skipping", "url", bk.URL)
 			return tx.Rollback()
 		}
@@ -203,6 +216,7 @@ func (db *DB) UpsertBookmark(bk *Bookmark) error {
 			bk.Desc,
 			bk.Desc,
 			tagListText,
+			preferredModule,
 
 			// xhsum calculated in cache
 			"",
