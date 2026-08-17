@@ -19,7 +19,6 @@
 // along with gosuki.  If not, see <http://www.gnu.org/licenses/>.
 package config
 
-
 import (
 	"errors"
 	"fmt"
@@ -39,7 +38,7 @@ const (
 )
 
 func getDefaultConfigDir() (string, error) {
-	configDir, err := os.UserConfigDir()
+	configDir, err := utils.GetGosukiConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("could not get config dir: %s", err)
 	}
@@ -47,7 +46,6 @@ func getDefaultConfigDir() (string, error) {
 		return "", errors.New("could not get config dir")
 	}
 
-	configDir = path.Join(configDir, utils.GosukiDirName)
 	return configDir, nil
 }
 

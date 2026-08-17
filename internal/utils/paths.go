@@ -30,8 +30,27 @@ import (
 	"strings"
 )
 
-// GosukiDirName is the application directory name used across all platforms.
-const GosukiDirName = "gosuki"
+const (
+	// GosukiDirName is the application directory name used across all platforms.
+	GosukiDirName = "gosuki"
+	// EnvGosukiConfigHome overrides the directory containing config.toml and,
+	// on Windows, gosuki.db. This keeps side-by-side installations isolated.
+	EnvGosukiConfigHome = "GOSUKI_CONFIG_HOME"
+)
+
+// GetGosukiConfigDir returns the directory containing gosuki's configuration.
+// An explicit override takes precedence over the platform default.
+func GetGosukiConfigDir() (string, error) {
+	if configDir := os.Getenv(EnvGosukiConfigHome); configDir != "" {
+		return filepath.Clean(configDir), nil
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, GosukiDirName), nil
+}
 
 func DirExists(path string) (bool, error) {
 	info, err := os.Stat(path)
