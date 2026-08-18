@@ -242,7 +242,7 @@ func TestBuildWhereClause_TagFuzzy(t *testing.T) {
 func TestBuildCountQuery_NoTag(t *testing.T) {
 	q := buildCountQuery("", false, "test", "test")
 	require.Contains(t, q, "SELECT COUNT(*)")
-	require.Contains(t, q, "gskbookmarks")
+	require.Contains(t, q, "effective_bookmarks")
 	require.Contains(t, q, "LIMIT 1")
 }
 
@@ -289,7 +289,7 @@ func TestBuildWhereClauseForManyTags_Fuzzy(t *testing.T) {
 func TestBuildSelectQuery_NoTag(t *testing.T) {
 	q := buildSelectQuery("test", false, "", DefaultPagination())
 	require.Contains(t, q, "SELECT URL, metadata, tags, module")
-	require.Contains(t, q, "gskbookmarks")
+	require.Contains(t, q, "effective_bookmarks")
 	require.Contains(t, q, "URL like '%test%'")
 	require.Contains(t, q, "LIMIT")
 }

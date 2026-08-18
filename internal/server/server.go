@@ -76,6 +76,7 @@ func NewWebUIServer(tuiMode bool) *WebUIServer {
 
 	apiRoute := chi.NewRouter()
 	apiRoute.Get("/bookmarks", api.GetAPIBookmarks)
+	apiRoute.Patch("/bookmarks/overrides", api.PatchBookmarkOverrides)
 
 	router.Mount("/api", apiRoute)
 

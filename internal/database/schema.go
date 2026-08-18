@@ -45,7 +45,7 @@ import (
 	    on gskbookmarks(version, node_id) for P2P sync change detection
 */
 
-const CurrentSchemaVersion = 4
+const CurrentSchemaVersion = 5
 
 const (
 
@@ -74,8 +74,32 @@ const (
 		ordinal INTEGER PRIMARY KEY,
 		node_id BLOB NOT NULL UNIQUE,
 		version INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS bookmark_overrides (
+		url TEXT PRIMARY KEY,
+		metadata TEXT,
+		tags TEXT,
+		desc TEXT,
+		modified INTEGER NOT NULL DEFAULT (strftime('%s'))
 	)
 	`
+
+	QCreateEffectiveView = `CREATE VIEW IF NOT EXISTS effective_bookmarks AS
+	SELECT
+		b.id,
+		b.URL,
+		COALESCE(o.metadata, b.metadata) AS metadata,
+		COALESCE(o.tags, b.tags) AS tags,
+		COALESCE(o.desc, b.desc) AS desc,
+		CASE WHEN o.url IS NULL THEN b.modified ELSE o.modified END AS modified,
+		b.flags,
+		b.module,
+		b.xhsum,
+		b.version,
+		b.node_id
+	FROM gskbookmarks AS b
+	LEFT JOIN bookmark_overrides AS o ON o.url = b.URL`
 
 	// The following view and and triggers provide buku compatibility
 	QCreateView = `CREATE VIEW bookmarks AS
@@ -259,6 +283,11 @@ func checkDBVersion(db *DB) error {
 					return err
 				}
 				version = 4
+			case 4:
+				if err = db.migrateToVersion5(); err != nil {
+					return err
+				}
+				version = 5
 			}
 		}
 	}
@@ -283,6 +312,11 @@ func (db *DB) InitSchema(ctx context.Context) error {
 	}
 
 	if _, err = tx.ExecContext(ctx, QCreateSchema); err != nil {
+		tx.Rollback()
+		return DBError{DBName: db.Name, Err: err}
+	}
+
+	if _, err = tx.ExecContext(ctx, QCreateEffectiveView); err != nil {
 		tx.Rollback()
 		return DBError{DBName: db.Name, Err: err}
 	}

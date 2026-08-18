@@ -34,6 +34,7 @@ func (db *DB) migrateToVersion2() error {
 
 	_, err = tx.Exec(`
 		DROP VIEW IF EXISTS bookmarks;
+		DROP VIEW IF EXISTS effective_bookmarks;
 		DROP TRIGGER IF EXISTS bookmarks_insert;
 		DROP TRIGGER IF EXISTS bookmarks_update;
 		CREATE TABLE temp_gskbookmarks (

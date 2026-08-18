@@ -162,7 +162,7 @@ func QueryBookmarksByTags(
 	log.Trace(whereClause)
 
 	orderBy := buildOrderBy(pagination)
-	sqlQuery := "SELECT URL, metadata, tags, module FROM gskbookmarks WHERE " +
+	sqlQuery := "SELECT URL, metadata, tags, module FROM effective_bookmarks WHERE " +
 		whereClause + orderBy + QQueryPaginate
 	sqlQuery = fillPagination(sqlQuery, pagination.Size, (pagination.Page-1)*pagination.Size)
 
@@ -172,7 +172,7 @@ func QueryBookmarksByTags(
 		return nil, err
 	}
 
-	countQuery := "SELECT COUNT(*) FROM gskbookmarks WHERE " + whereClause + " LIMIT 1"
+	countQuery := "SELECT COUNT(*) FROM effective_bookmarks WHERE " + whereClause + " LIMIT 1"
 
 	var total uint
 	err = DiskDB.Handle.GetContext(ctx, &total, countQuery)
@@ -217,7 +217,7 @@ func BookmarksByTag(
 	tag string,
 	pagination *PaginationParams,
 ) (*QueryResult, error) {
-	query := "SELECT * FROM gskbookmarks WHERE"
+	query := "SELECT * FROM effective_bookmarks WHERE"
 	tagsCondition := ""
 	if len(tag) > 0 {
 		tagsCondition = fmt.Sprintf(" LOWER(tags) LIKE '%%%s%%'", strings.ToLower(tag))
@@ -240,7 +240,7 @@ func BookmarksByTag(
 	err = DiskDB.Handle.GetContext(
 		ctx,
 		&count,
-		"SELECT COUNT(*) FROM gskbookmarks WHERE " + tagsCondition,
+		"SELECT COUNT(*) FROM effective_bookmarks WHERE "+tagsCondition,
 	)
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func BookmarksByTags(
 		return nil, errors.New("nil: *PaginationParams")
 	}
 
-	query := "SELECT * FROM gskbookmarks WHERE"
+	query := "SELECT * FROM effective_bookmarks WHERE"
 	conditions := make([]string, 0, len(tags))
 
 	for _, tag := range tags {
@@ -304,7 +304,7 @@ func BookmarksByTags(
 	}
 
 	var count uint
-	countQuery := "SELECT COUNT(*) FROM gskbookmarks WHERE"
+	countQuery := "SELECT COUNT(*) FROM effective_bookmarks WHERE"
 	countQuery = countQuery + " (" + strings.Join(conditions, joinOperator) + ")"
 	err = DiskDB.Handle.GetContext(ctx, &count, countQuery)
 	if err != nil {
@@ -320,7 +320,7 @@ func ListBookmarks(
 ) (*QueryResult, error) {
 	rawBooks := RawBookmarks{}
 	orderBy := buildOrderBy(pagination)
-	sqlQuery := fmt.Sprintf("SELECT * FROM gskbookmarks%s %s", orderBy, QQueryPaginate)
+	sqlQuery := fmt.Sprintf("SELECT * FROM effective_bookmarks%s %s", orderBy, QQueryPaginate)
 	err := DiskDB.Handle.SelectContext(
 		ctx,
 		&rawBooks,
@@ -372,7 +372,7 @@ func buildSelectQuery(
 
 	sqlPrelude := `
 		SELECT URL, metadata, tags, module
-		FROM gskbookmarks
+		FROM effective_bookmarks
 		WHERE 
 	`
 
@@ -411,7 +411,7 @@ func buildWhereClause(tag string, fuzzy bool) string {
 
 func buildCountQuery(tag string, fuzzy bool, query string, tagVal string) string {
 	w := fillQueryReplacements(buildWhereClause(tag, fuzzy), query, tagVal)
-	return "SELECT COUNT(*) FROM gskbookmarks WHERE " + w + " LIMIT 1"
+	return "SELECT COUNT(*) FROM effective_bookmarks WHERE " + w + " LIMIT 1"
 }
 
 func buildWhereClauseForManyTags(
