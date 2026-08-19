@@ -93,3 +93,39 @@ func TestApplyBookmarkOverridesIgnoresUnknownURLs(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, updated)
 }
+
+func TestApplyBookmarkOverridesAppendsEffectiveText(t *testing.T) {
+	cache := newOverrideTestDB(t, "overrides_append_cache")
+	l2 := newOverrideTestDB(t, "overrides_append_l2")
+	seedOverrideBookmark(t, cache)
+	seedOverrideBookmark(t, l2)
+
+	titleSuffix := "— local"
+	descriptionSuffix := "with notes"
+	updated, err := applyBookmarkOverrides(context.Background(), cache, l2, BookmarkOverridePatch{
+		URLs:              []string{"https://example.test"},
+		AppendTitle:       &titleSuffix,
+		AppendDescription: &descriptionSuffix,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, updated)
+
+	for _, database := range []*DB{cache, l2} {
+		var effective struct {
+			Title string `db:"metadata"`
+			Desc  string `db:"desc"`
+		}
+		require.NoError(t, database.Handle.Get(&effective, `
+			SELECT metadata, desc FROM effective_bookmarks
+			WHERE URL = 'https://example.test'
+		`))
+		require.Equal(t, "Browser title — local", effective.Title)
+		require.Equal(t, "Browser description with notes", effective.Desc)
+	}
+}
+
+func TestAppendText(t *testing.T) {
+	require.Equal(t, "base suffix", appendText(" base ", " suffix "))
+	require.Equal(t, "suffix", appendText("", "suffix"))
+	require.Equal(t, "base", appendText("base", ""))
+}

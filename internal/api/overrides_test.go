@@ -18,6 +18,8 @@ func TestPatchBookmarkOverridesRejectsInvalidRequests(t *testing.T) {
 		{"no operation", `{"urls":["https://example.test"]}`},
 		{"unknown clear field", `{"urls":["https://example.test"],"clear":["url"]}`},
 		{"set and clear same field", `{"urls":["https://example.test"],"set":{"title":"x"},"clear":["title"]}`},
+		{"append and clear same field", `{"urls":["https://example.test"],"append":{"description":"x"},"clear":["description"]}`},
+		{"set and append same field", `{"urls":["https://example.test"],"set":{"title":"x"},"append":{"title":"y"}}`},
 		{"unknown json field", `{"urls":["https://example.test"],"wat":true}`},
 	}
 	for _, test := range tests {

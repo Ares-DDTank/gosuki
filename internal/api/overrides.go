@@ -19,12 +19,18 @@ type BookmarkOverrideSet struct {
 	Description *string   `json:"description,omitempty"`
 }
 
+type BookmarkOverrideAppend struct {
+	Title       *string `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
 type BookmarkOverrideRequest struct {
-	URLs       []string            `json:"urls"`
-	Set        BookmarkOverrideSet `json:"set"`
-	AddTags    []string            `json:"add_tags,omitempty"`
-	RemoveTags []string            `json:"remove_tags,omitempty"`
-	Clear      []string            `json:"clear,omitempty"`
+	URLs       []string               `json:"urls"`
+	Set        BookmarkOverrideSet    `json:"set"`
+	Append     BookmarkOverrideAppend `json:"append"`
+	AddTags    []string               `json:"add_tags,omitempty"`
+	RemoveTags []string               `json:"remove_tags,omitempty"`
+	Clear      []string               `json:"clear,omitempty"`
 }
 
 type BookmarkOverrideResponse struct {
@@ -54,12 +60,14 @@ func PatchBookmarkOverrides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	patch := db.BookmarkOverridePatch{
-		URLs:        request.URLs,
-		Title:       request.Set.Title,
-		Tags:        request.Set.Tags,
-		Description: request.Set.Description,
-		AddTags:     request.AddTags,
-		RemoveTags:  request.RemoveTags,
+		URLs:              request.URLs,
+		Title:             request.Set.Title,
+		Tags:              request.Set.Tags,
+		Description:       request.Set.Description,
+		AppendTitle:       request.Append.Title,
+		AppendDescription: request.Append.Description,
+		AddTags:           request.AddTags,
+		RemoveTags:        request.RemoveTags,
 	}
 	for _, field := range request.Clear {
 		switch strings.ToLower(strings.TrimSpace(field)) {
@@ -74,13 +82,19 @@ func PatchBookmarkOverrides(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if patch.ClearTitle && patch.Title != nil ||
+	if patch.ClearTitle && (patch.Title != nil || patch.AppendTitle != nil) ||
 		patch.ClearTags && (patch.Tags != nil || len(patch.AddTags) > 0 || len(patch.RemoveTags) > 0) ||
-		patch.ClearDescription && patch.Description != nil {
+		patch.ClearDescription && (patch.Description != nil || patch.AppendDescription != nil) {
 		http.Error(w, "a field cannot be set and cleared in the same request", http.StatusBadRequest)
 		return
 	}
+	if patch.Title != nil && patch.AppendTitle != nil ||
+		patch.Description != nil && patch.AppendDescription != nil {
+		http.Error(w, "a field cannot be set and appended in the same request", http.StatusBadRequest)
+		return
+	}
 	if patch.Title == nil && patch.Tags == nil && patch.Description == nil &&
+		patch.AppendTitle == nil && patch.AppendDescription == nil &&
 		len(patch.AddTags) == 0 && len(patch.RemoveTags) == 0 && len(request.Clear) == 0 {
 		http.Error(w, "request does not contain an override operation", http.StatusBadRequest)
 		return

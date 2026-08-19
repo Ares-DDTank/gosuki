@@ -16,23 +16,27 @@ import (
 // are left unchanged; Clear fields remove the local value so the browser value
 // becomes effective again.
 type BookmarkOverridePatch struct {
-	URLs             []string
-	Title            *string
-	Tags             *[]string
-	Description      *string
-	AddTags          []string
-	RemoveTags       []string
-	ClearTitle       bool
-	ClearTags        bool
-	ClearDescription bool
+	URLs              []string
+	Title             *string
+	Tags              *[]string
+	Description       *string
+	AppendTitle       *string
+	AppendDescription *string
+	AddTags           []string
+	RemoveTags        []string
+	ClearTitle        bool
+	ClearTags         bool
+	ClearDescription  bool
 }
 
 type bookmarkOverrideState struct {
-	URL           string         `db:"url"`
-	Metadata      sql.NullString `db:"override_metadata"`
-	Tags          sql.NullString `db:"override_tags"`
-	Description   sql.NullString `db:"override_desc"`
-	EffectiveTags string         `db:"effective_tags"`
+	URL                  string         `db:"url"`
+	Metadata             sql.NullString `db:"override_metadata"`
+	Tags                 sql.NullString `db:"override_tags"`
+	Description          sql.NullString `db:"override_desc"`
+	EffectiveTags        string         `db:"effective_tags"`
+	EffectiveTitle       string         `db:"effective_title"`
+	EffectiveDescription string         `db:"effective_description"`
 }
 
 type bookmarkOverrideRecord struct {
@@ -84,7 +88,9 @@ func applyBookmarkOverrides(
 				o.metadata AS override_metadata,
 				o.tags AS override_tags,
 				o.desc AS override_desc,
-				e.tags AS effective_tags
+				e.tags AS effective_tags,
+				e.metadata AS effective_title,
+				e.desc AS effective_description
 			FROM gskbookmarks AS b
 			JOIN effective_bookmarks AS e ON e.URL = b.URL
 			LEFT JOIN bookmark_overrides AS o ON o.url = b.URL
@@ -108,11 +114,19 @@ func applyBookmarkOverrides(
 			record.Metadata = sql.NullString{}
 		} else if patch.Title != nil {
 			record.Metadata = sql.NullString{String: *patch.Title, Valid: true}
+		} else if patch.AppendTitle != nil {
+			record.Metadata = sql.NullString{
+				String: appendText(state.EffectiveTitle, *patch.AppendTitle), Valid: true,
+			}
 		}
 		if patch.ClearDescription {
 			record.Description = sql.NullString{}
 		} else if patch.Description != nil {
 			record.Description = sql.NullString{String: *patch.Description, Valid: true}
+		} else if patch.AppendDescription != nil {
+			record.Description = sql.NullString{
+				String: appendText(state.EffectiveDescription, *patch.AppendDescription), Valid: true,
+			}
 		}
 
 		hasTagOperation := patch.Tags != nil || len(patch.AddTags) > 0 || len(patch.RemoveTags) > 0
@@ -142,6 +156,18 @@ func applyBookmarkOverrides(
 		return 0, fmt.Errorf("update L1 overrides: %w", err)
 	}
 	return len(records), nil
+}
+
+func appendText(base, suffix string) string {
+	base = strings.TrimSpace(base)
+	suffix = strings.TrimSpace(suffix)
+	if base == "" {
+		return suffix
+	}
+	if suffix == "" {
+		return base
+	}
+	return base + " " + suffix
 }
 
 func writeBookmarkOverrides(ctx context.Context, db *DB, records []bookmarkOverrideRecord) error {
