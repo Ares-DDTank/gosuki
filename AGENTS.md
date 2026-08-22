@@ -8,8 +8,7 @@
 
 ## Windows debug workflow
 
-- Build with `./build-debug.ps1`.
-- Start the isolated executable with `./start-debug.ps1`.
-- Stop only that executable with `./stop-debug.ps1`.
-- Rebuild and restart with `./restart-debug.ps1`.
-- The debug binary is `build\gosuki-debug.exe` and is intentionally ignored by Git.
+- **Default Launch/Restart**: Always use `./restart-debug.ps1` to rebuild (`build-debug.ps1`) and reboot the debug executable on `127.0.0.1:22025`.
+- **Stop**: `./stop-debug.ps1` to terminate only the debug process.
+- **CLI**: `./run-gosuki.ps1` and `./run-suki.ps1` (defaults to fork runtime).
+- Debug binary is `build\gosuki-debug.exe` (git-ignored).
