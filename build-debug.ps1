@@ -21,6 +21,7 @@ New-Item -ItemType Directory -Path (Join-Path $repoRoot "build") -Force | Out-Nu
 Push-Location $repoRoot
 try {
     if (-not $SkipTests) {
+        Write-Host "Running Chrome browser tests..."
         & go test -count=1 ./browsers/chrome
         if ($LASTEXITCODE -ne 0) {
             throw "Chrome tests failed with exit code $LASTEXITCODE."
@@ -29,6 +30,7 @@ try {
 
     $version = (& git describe --tags --dirty --always).Trim() + "-debug"
     foreach ($target in $debugExecutables) {
+        Write-Host "Building $($target.Name) debug executable ($($target.Package))..."
         & go build `
             -tags "windows amd64" `
             -gcflags "all=-N -l" `
