@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet("fork", "scoop")]
-    [string]$Runtime = "fork"
+    [string]$Runtime = "fork",
+    [switch]$DebugBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,8 +12,8 @@ if ($Runtime -eq "fork") {
     $configHome = "D:\C2D\dotfiles\gosuki-dev"
     $expectedRole = "gosuki-fork"
     $binaryRoot = Join-Path $repoRoot "build"
-    $gosukiExe = Join-Path $binaryRoot "gosuki-debug.exe"
-    $sukiExe = Join-Path $binaryRoot "suki-debug.exe"
+    $gosukiExe = Join-Path $binaryRoot $(if ($DebugBuild) { "gosuki-debug.exe" } else { "gosuki.exe" })
+    $sukiExe = Join-Path $binaryRoot $(if ($DebugBuild) { "suki-debug.exe" } else { "suki.exe" })
     $databasePath = Join-Path $configHome "gosuki.db"
     $listen = "127.0.0.1:22025"
 }
